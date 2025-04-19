@@ -1,0 +1,103 @@
+<html lang="he">
+<head>
+  <meta charset="UTF-8">
+  <title>חיפוש מיקום בעברית</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-sA+e2cG1oFIEj4SrT1ZxGzEhlcJ8WPxSnDtaqtdW4Kw="
+    crossorigin=""
+  />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css"
+  />
+
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+    }
+
+    #map {
+      height: 100%;
+      width: 100%;
+    }
+
+    #coords {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      z-index: 1000;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+<div id="coords">בחר מיקום או חפש כתובת</div>
+
+<!-- Leaflet JS -->
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-o9N1j8Mk2zLzJqzTbxFh+1lyCDxT+E8+fTFbZ9E1wYQ="
+  crossorigin=""
+></script>
+
+<!-- Leaflet Geocoder -->
+<script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+
+<script>
+  // יצירת מפה
+  const map = L.map('map').setView([32.0853, 34.7818], 13); // תצוגה ראשונית - תל אביב
+
+  // הוספת שכבת טייל מאופן סטריט מאפ
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors',
+    maxZoom: 19,
+  }).addTo(map);
+
+  // יצירת מרקר
+  const marker = L.marker([0, 0], { draggable: true }).addTo(map);
+  marker.setOpacity(0); // מוסתר עד שנבחר מיקום
+
+  const coordsDiv = document.getElementById('coords');
+
+  function updateCoords(lat, lng) {
+    coordsDiv.innerHTML = `קו רוחב: ${lat.toFixed(6)}<br>קו אורך: ${lng.toFixed(6)}`;
+  }
+
+  // הוספת חיפוש כתובת בעברית
+  L.Control.geocoder({
+    defaultMarkGeocode: false,
+    geocoder: L.Control.Geocoder.nominatim({
+      geocodingQueryParams: {
+        'accept-language': 'he'
+      }
+    })
+  })
+  .on('markgeocode', function(e) {
+    const center = e.geocode.center;
+    map.setView(center, 16);
+    marker.setLatLng(center).setOpacity(1);
+    updateCoords(center.lat, center.lng);
+  })
+  .addTo(map);
+
+  // לחיצה על המפה תציב מרקר
+  map.on('click', function(e) {
+    const { lat, lng } = e.latlng;
+    marker.setLatLng([lat, lng]).setOpacity(1);
+    updateCoords(lat, lng);
+  });
+</script>
+
+</body>
+</html>
