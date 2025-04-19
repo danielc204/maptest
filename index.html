@@ -1,103 +1,109 @@
-<html lang="he">
-<head>
-  <meta charset="UTF-8">
-  <title>חיפוש מיקום בעברית</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Leaflet CSS -->
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>בחירת מיקום</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-sA+e2cG1oFIEj4SrT1ZxGzEhlcJ8WPxSnDtaqtdW4Kw="
-    crossorigin=""
   />
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css"
-  />
-
   <style>
-    html, body {
+    body {
       margin: 0;
-      height: 100%;
+      font-family: Arial, sans-serif;
+      direction: rtl;
+      text-align: right;
     }
-
     #map {
-      height: 100%;
+      height: 90vh;
       width: 100%;
     }
-
-    #coords {
-      position: absolute;
-      bottom: 10px;
-      right: 10px;
-      z-index: 1000;
-      background: rgba(255, 255, 255, 0.9);
+    #search-container {
       padding: 10px;
-      border-radius: 8px;
-      font-size: 14px;
+      background-color: #f0f0f0;
+    }
+    #address-input {
+      width: 100%;
+      padding: 8px;
+      font-size: 16px;
+    }
+    #results {
+      list-style-type: none;
+      padding: 0;
+      margin: 5px 0;
+      max-height: 200px;
+      overflow-y: auto;
+      background-color: white;
+    }
+    #results li {
+      padding: 8px;
+      cursor: pointer;
+      border-bottom: 1px solid #ccc;
+    }
+    #results li:hover {
+      background-color: #e0e0e0;
     }
   </style>
 </head>
 <body>
+  <div id="search-container">
+    <input
+      type="text"
+      id="address-input"
+      placeholder="חיפוש כתובת"
+    />
+    <ul id="results"></ul>
+  </div>
+  <div id="map"></div>
 
-<div id="map"></div>
-<div id="coords">בחר מיקום או חפש כתובת</div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const map = L.map('map').setView([31.7683, 35.2137], 9); // ירושלים
 
-<!-- Leaflet JS -->
-<script
-  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-  integrity="sha256-o9N1j8Mk2zLzJqzTbxFh+1lyCDxT+E8+fTFbZ9E1wYQ="
-  crossorigin=""
-></script>
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+    }).addTo(map);
 
-<!-- Leaflet Geocoder -->
-<script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    const input = document.getElementById('address-input');
+    const resultsList = document.getElementById('results');
+    let marker;
 
-<script>
-  // יצירת מפה
-  const map = L.map('map').setView([32.0853, 34.7818], 13); // תצוגה ראשונית - תל אביב
-
-  // הוספת שכבת טייל מאופן סטריט מאפ
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap contributors',
-    maxZoom: 19,
-  }).addTo(map);
-
-  // יצירת מרקר
-  const marker = L.marker([0, 0], { draggable: true }).addTo(map);
-  marker.setOpacity(0); // מוסתר עד שנבחר מיקום
-
-  const coordsDiv = document.getElementById('coords');
-
-  function updateCoords(lat, lng) {
-    coordsDiv.innerHTML = `קו רוחב: ${lat.toFixed(6)}<br>קו אורך: ${lng.toFixed(6)}`;
-  }
-
-  // הוספת חיפוש כתובת בעברית
-  L.Control.geocoder({
-    defaultMarkGeocode: false,
-    geocoder: L.Control.Geocoder.nominatim({
-      geocodingQueryParams: {
-        'accept-language': 'he'
+    input.addEventListener('input', async () => {
+      const query = input.value.trim();
+      if (query.length < 3) {
+        resultsList.innerHTML = '';
+        return;
       }
-    })
-  })
-  .on('markgeocode', function(e) {
-    const center = e.geocode.center;
-    map.setView(center, 16);
-    marker.setLatLng(center).setOpacity(1);
-    updateCoords(center.lat, center.lng);
-  })
-  .addTo(map);
 
-  // לחיצה על המפה תציב מרקר
-  map.on('click', function(e) {
-    const { lat, lng } = e.latlng;
-    marker.setLatLng([lat, lng]).setOpacity(1);
-    updateCoords(lat, lng);
-  });
-</script>
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&accept-language=he`;
 
+      const res = await fetch(url);
+      const results = await res.json();
+
+      resultsList.innerHTML = '';
+      results.forEach((place) => {
+        const li = document.createElement('li');
+        li.textContent = place.display_name;
+        li.addEventListener('click', () => {
+          if (marker) {
+            map.removeLayer(marker);
+          }
+
+          const lat = parseFloat(place.lat);
+          const lon = parseFloat(place.lon);
+          marker = L.marker([lat, lon]).addTo(map);
+          map.setView([lat, lon], 15);
+          resultsList.innerHTML = '';
+          input.value = place.display_name;
+
+          // שליחת קואורדינטות ל-Thunkable
+          const coords = { lat, lon };
+          window.postMessage(JSON.stringify(coords), '*');
+        });
+        resultsList.appendChild(li);
+      });
+    });
+  </script>
 </body>
 </html>
